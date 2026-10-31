@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit",
     "test": "tsx --test test/*.test.ts",
     "demo": "tsx scripts/demo.ts",
+    "demo:site": "tsx scripts/demo.ts --site",
     "check": "npm run typecheck && npm test && npm run build",
     "prepack": "npm run build"
   },

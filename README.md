@@ -8,6 +8,8 @@ For developers, agencies, and website owners who want to catch problems before t
 
 ![SiteCheck report with scan coverage, priority filters, and actionable findings](docs/qa/report-desktop.jpg)
 
+**[Explore the sample report](https://kre8ivtech.github.io/sitecheck/)** · **[See the follow-up comparison](https://kre8ivtech.github.io/sitecheck/after.html)**
+
 ## What works today
 
 - **Accessibility:** axe-core checks for WCAG 2 A/AA and 2.1 A/AA, with affected selectors, HTML examples, and rule guidance.
@@ -51,6 +53,8 @@ This starts a temporary fictional studio website, scans deliberate problems, rep
 - `reports/demo-after/report.html` — the follow-up report, including the comparison.
 
 The temporary target server closes when generation finishes; its page links are not a live public website. Both reports remain usable.
+
+`npm run demo:site` also rebuilds the static showcase in `docs/`, with a fictional-data notice and disabled local target links.
 
 ## Configure your scan
 
