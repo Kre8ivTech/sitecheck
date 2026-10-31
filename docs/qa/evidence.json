@@ -1,0 +1,24 @@
+{
+  "contract": "../design-contract.md: standalone audit workspace; coverage first, prioritized evidence, labeled keyboard controls, 1440x900 and 390x844 layouts.",
+  "targetViewports": ["1440x900", "390x844"],
+  "accessibility": {
+    "status": "pass",
+    "evidence": "test/report.test.ts ran axe WCAG 2 A/AA and 2.1 A/AA at both target widths with zero violations; keyboard Tab reached the visible skip link, selects were accessible by their labels, and JSON export produced the expected report. Focus-visible styling and reduced-motion CSS are present."
+  },
+  "responsive": {
+    "status": "pass",
+    "evidence": "Reviewed both screenshots and checked document scrollWidth <= innerWidth at 1440 and 390 pixels, including a long URL. Mobile metrics stack in two columns, navigation scrolls horizontally inside its own region, and controls fit."
+  },
+  "contentStates": {
+    "loading": { "status": "not-applicable", "reason": "Static report generated after the command finishes; the CLI emits scan progress while work runs." },
+    "empty": { "status": "pass", "evidence": "Selected Low and Links on the demo report: zero findings and explanatory empty text appeared. Automated report test also exercises an entirely clean report." },
+    "error": { "status": "pass", "evidence": "The fixture's 404 page appears as Page could not be audited with HTTP 404 and a recovery instruction. A missing journey selector produces a failed journey." },
+    "partial": { "status": "pass", "evidence": "The sample report explicitly displays Partial · review coverage with 2/3 pages audited and the failed page in findings." },
+    "success": { "status": "pass", "evidence": "The real local scan completes page audits and a contact-form journey. The report test verifies the completed clean state and the demo-after report compares repaired findings." },
+    "permission": { "status": "not-applicable", "reason": "This static local report has no authentication or permission-granting controls. Private-address refusal is verified separately by the CLI/network unit tests." }
+  },
+  "renderedEvidence": [
+    { "viewport": "1440x900", "artifact": "report-desktop.jpg", "observation": "Desktop audit overview, coverage, filters, and first finding; fictional local fixture only." },
+    { "viewport": "390x844", "artifact": "report-mobile.jpg", "observation": "Mobile toolbar, horizontal navigation, wrapped title, partial status, and two-column metrics." }
+  ]
+}

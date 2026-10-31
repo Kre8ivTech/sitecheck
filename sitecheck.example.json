@@ -1,0 +1,18 @@
+{
+  "url": "https://www.example.com/",
+  "maxPages": 5,
+  "maxLinks": 50,
+  "timeout": 15000,
+  "output": "reports/example",
+  "paths": ["/contact"],
+  "exclude": ["/admin", "/account"],
+  "journeys": [
+    {
+      "name": "Contact form is available",
+      "steps": [
+        { "path": "/", "expect": "nav a[href='/contact']" },
+        { "path": "/contact", "expect": "form input[type='email']" }
+      ]
+    }
+  ]
+}
