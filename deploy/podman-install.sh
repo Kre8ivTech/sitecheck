@@ -9,6 +9,9 @@ podman network exists sitecheck-isolated || podman network create --internal sit
 podman network exists sitecheck-outbound || podman network create sitecheck-outbound
 install -d -m 700 /opt/sitecheck/data
 podman run --rm --user 0 --network none -v /opt/sitecheck/data:/data:Z "$image" chown pwuser:pwuser /data
+for unit in container-sitecheck-edge.service container-sitecheck-web.service container-sitecheck-egress.service; do
+  if systemctl cat "$unit" >/dev/null 2>&1; then systemctl stop "$unit"; fi
+done
 for name in sitecheck-edge sitecheck-web sitecheck-egress; do
   if podman container exists "$name"; then podman stop --time 10 "$name"; podman rm "$name"; fi
 done
@@ -37,5 +40,6 @@ install -d /etc/systemd/system/container-sitecheck-web.service.d /etc/systemd/sy
 printf '[Unit]\nAfter=container-sitecheck-egress.service\nRequires=container-sitecheck-egress.service\n' > /etc/systemd/system/container-sitecheck-web.service.d/dependencies.conf
 printf '[Unit]\nAfter=container-sitecheck-web.service\nRequires=container-sitecheck-web.service\n' > /etc/systemd/system/container-sitecheck-edge.service.d/dependencies.conf
 systemctl daemon-reload
-systemctl enable container-sitecheck-egress.service container-sitecheck-web.service container-sitecheck-edge.service
+podman stop --time 10 sitecheck-edge sitecheck-web sitecheck-egress
+systemctl enable --now container-sitecheck-egress.service container-sitecheck-web.service container-sitecheck-edge.service
 curl --retry 10 --retry-connrefused --retry-delay 1 --fail http://127.0.0.1:3100/health
