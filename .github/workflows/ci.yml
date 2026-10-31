@@ -25,3 +25,16 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run check
       - run: npm pack --dry-run
+
+  containers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - run: docker compose up -d --build
+      - name: Verify worker sandbox and network boundary
+        run: |
+          docker compose exec -T web node --input-type=module -e "import {chromium} from 'playwright'; const b=await chromium.launch({chromiumSandbox:true}); console.log('Chromium sandbox ready'); await b.close(); try { await fetch('http://1.1.1.1',{signal:AbortSignal.timeout(2000)}); process.exit(1); } catch { console.log('Direct worker egress blocked'); }"
+          docker compose exec -T web node --input-type=module -e "const r=await fetch('http://egress:3128/validate?url=http%3A%2F%2F169.254.169.254'); if(r.status!==403)process.exit(1); console.log('Metadata destination blocked')"
+      - if: always()
+        run: docker compose logs --tail 40 && docker compose down

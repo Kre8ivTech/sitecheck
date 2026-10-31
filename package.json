@@ -1,14 +1,25 @@
 {
   "name": "@kre8ivtech/sitecheck",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Evidence-first website audits: accessibility, links, metadata, and customer journeys.",
   "type": "module",
   "license": "MIT",
-  "bin": { "sitecheck": "dist/cli.js" },
-  "files": ["dist", "README.md", "LICENSE", "sitecheck.example.json"],
-  "engines": { "node": ">=22" },
+  "bin": {
+    "sitecheck": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "sitecheck.example.json"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "tsx src/cli.ts",
+    "web": "tsx src/web-main.ts",
+    "start": "node dist/web-main.js",
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test test/*.test.ts",
@@ -17,9 +28,14 @@
     "check": "npm run typecheck && npm test && npm run build",
     "prepack": "npm run build"
   },
-  "repository": { "type": "git", "url": "git+https://github.com/Kre8ivTech/sitecheck.git" },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Kre8ivTech/sitecheck.git"
+  },
   "homepage": "https://github.com/Kre8ivTech/sitecheck#readme",
-  "bugs": { "url": "https://github.com/Kre8ivTech/sitecheck/issues" },
+  "bugs": {
+    "url": "https://github.com/Kre8ivTech/sitecheck/issues"
+  },
   "dependencies": {
     "@axe-core/playwright": "4.14.0",
     "ipaddr.js": "2.2.0",

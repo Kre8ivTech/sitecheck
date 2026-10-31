@@ -9,22 +9,24 @@ import { networkGuard, safeGet } from './network.js';
 import { renderReport } from './report.js';
 import type { ScanOptions, ScanReport, Finding, PageResult } from './types.js';
 
-const AGENT = 'Kre8ivSiteCheck/0.1 (+https://github.com/Kre8ivTech/sitecheck)';
+const AGENT = 'Kre8ivSiteCheck/0.2 (+https://github.com/Kre8ivTech/sitecheck)';
 // robots-parser's CommonJS export and ambient declarations disagree under NodeNext.
 const robotsParser = createRequire(import.meta.url)('robots-parser') as (url: string, text: string) => { isAllowed(url: string, agent: string): boolean | undefined; getCrawlDelay(agent: string): number | undefined };
 const message = (error: unknown) => error instanceof Error ? error.message : String(error);
 const skipPath = /\/(?:logout|log-out|signout|sign-out|delete|unsubscribe)(?:\/|$)/i;
 const assetPath = /\.(?:pdf|zip|gz|jpe?g|png|gif|svg|webp|mp[34]|woff2?|css|js|xml|json|ico)$/i;
 
-export async function scan(options: ScanOptions, progress: (text: string) => void = () => {}): Promise<ScanReport> {
+export async function scan(options: ScanOptions, progress: (text: string) => void = () => {}, runtime: { proxyServer?: string; sandbox?: boolean } = {}): Promise<ScanReport> {
   const started = Date.now();
   const baseline = options.baseline ? JSON.parse(await readFile(options.baseline, 'utf8')) as ScanReport : undefined;
   const origin = new URL(options.url).origin;
-  const guard = networkGuard(options.allowPrivate);
+  // In hosted mode the pinned egress proxy resolves/validates every connection.
+  // The isolated worker intentionally cannot resolve internet hosts itself.
+  const guard = runtime.proxyServer ? async (url: string) => { httpUrl(url); } : networkGuard(options.allowPrivate);
   await guard(options.url);
   await mkdir(join(options.output, 'screenshots'), { recursive: true });
   const report: ScanReport = {
-    schemaVersion: 1, version: '0.1.0', url: options.url, startedAt: new Date(started).toISOString(),
+    schemaVersion: 1, version: '0.2.0', url: options.url, startedAt: new Date(started).toISOString(),
     durationMs: 0, status: 'complete',
     scope: { maxPages: options.maxPages, maxLinks: options.maxLinks, queuedPagesRemaining: 0, linksNotChecked: 0, robotsSkipped: [], excluded: [] },
     pages: [], links: [], journeys: [], findings: [],
@@ -35,7 +37,7 @@ export async function scan(options: ScanOptions, progress: (text: string) => voi
     add({ url, rule, title, detail, category: 'scan', severity: 'medium', recommendation: 'Resolve the unavailable check and run the scan again.', evidence: [] });
   };
   let browser;
-  try { browser = await chromium.launch(); }
+  try { browser = await chromium.launch({ chromiumSandbox: runtime.sandbox, ...(runtime.proxyServer ? { proxy: { server: runtime.proxyServer, bypass: '<-loopback>' } } : {}) }); }
   catch { throw new Error('Chromium could not start. Run npx playwright install chromium, then try again.'); }
   try {
     const context = await browser.newContext({
