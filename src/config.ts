@@ -42,6 +42,7 @@ export async function optionsFrom(input: Record<string, unknown>): Promise<ScanO
       if (httpUrl(step.path, url).origin !== new URL(url).origin) throw new Error('Journey steps must stay on the starting origin.');
     }
   }
+  if (new Set(journeys.map(journey => journey.name)).size !== journeys.length) throw new Error('Journey names must be unique.');
   if (values.allowPrivate !== undefined && typeof values.allowPrivate !== 'boolean') throw new Error('allowPrivate must be true or false.');
   return {
     url, maxPages: boundedNumber(values.maxPages ?? 5, 'maxPages', 1, 25),

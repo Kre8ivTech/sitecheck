@@ -40,6 +40,11 @@ test('report escapes hostile page content and embedded JSON', () => {
   const compared = compareReports(report, previous);
   assert.equal(compared.resolved.length, 0);
   assert.equal(compared.unverified.length, 1, 'absence from a smaller scan must not imply resolution');
+  const a11y = finding({ ...f, category: 'accessibility', rule: 'color-contrast' });
+  const incomplete = { ...report, pages: [{ url: f.url, durationMs: 1, accessibility: 'passed' as const, accessibilityIncomplete: ['color-contrast'] }] };
+  const uncertain = compareReports(incomplete, { ...previous, findings: [a11y] });
+  assert.equal(uncertain.resolved.length, 0, 'an inconclusive rule must not imply a repair');
+  assert.equal(uncertain.unverified.length, 1);
 });
 
 test('scanner finds real problems, respects exclusions, checks journeys, and compares a repair', { timeout: 120000 }, async () => {

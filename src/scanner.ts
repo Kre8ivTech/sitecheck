@@ -127,6 +127,7 @@ export async function scan(options: ScanOptions, progress: (text: string) => voi
         try {
           const axe = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
           result.accessibility = axe.violations.length ? 'findings' : 'passed';
+          result.accessibilityIncomplete = axe.incomplete.map(rule => rule.id);
           for (const violation of axe.violations) add({
             category: 'accessibility', severity: ['critical', 'serious'].includes(violation.impact ?? '') ? 'high' : violation.impact === 'moderate' ? 'medium' : 'low',
             rule: violation.id, url, title: violation.help,

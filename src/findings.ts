@@ -17,7 +17,7 @@ export function compareReports(current: ScanReport, baseline: ScanReport): Compa
     const checked = old.category === 'links' ? current.links.some(l => l.url === old.url && l.outcome === 'ok')
       : old.category === 'journey' ? current.journeys.some(j => `journey:${j.name}` === old.rule && j.status === 'passed')
       : old.category === 'metadata' ? Boolean(page && (old.rule !== 'duplicate-title' || baseline.pages.every(p => current.pages.some(c => c.url === p.url && !c.error))))
-      : old.category === 'accessibility' ? Boolean(page && page.accessibility !== 'unavailable')
+      : old.category === 'accessibility' ? Boolean(page && page.accessibility !== 'unavailable' && !page.accessibilityIncomplete?.includes(old.rule))
       : old.category === 'scan' && old.rule === 'page-unavailable' ? Boolean(page)
       : old.category === 'scan' && old.rule === 'axe-unavailable' ? Boolean(page && page.accessibility !== 'unavailable')
       : old.category === 'scan' && old.rule === 'screenshot-unavailable' ? Boolean(page?.screenshot)

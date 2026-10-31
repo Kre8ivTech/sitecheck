@@ -21,6 +21,7 @@ export interface PageResult {
   durationMs: number;
   screenshot?: string;
   accessibility: 'passed' | 'findings' | 'unavailable';
+  accessibilityIncomplete?: string[];
   error?: string;
 }
 export interface LinkResult {
