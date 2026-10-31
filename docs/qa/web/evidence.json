@@ -1,0 +1,18 @@
+{
+  "contract": "../../web-design-contract.md: public URL form, real progress/cancellation, private temporary report, downloads, responsive report viewer.",
+  "targetViewports": ["1440x900", "390x844"],
+  "accessibility": {"status":"pass","evidence":"test/web.test.ts ran axe WCAG A/AA checks at both sizes with zero violations and exercised labeled URL/permission controls, submit, report result, and new scan. Manual screenshots show visible keyboard focus; reduced-motion CSS disables progress animation."},
+  "responsive": {"status":"pass","evidence":"Automated no-overflow assertions passed at 1440 and 390 pixels. Reviewed desktop and mobile screenshots: form stacks, heading wraps, controls fit, and scope explanation follows the primary action."},
+  "contentStates": {
+    "loading":{"status":"pass","evidence":"Submitted an actual studio-site scan through the isolated Compose deployment; real opening/scanning progress and cancellation control appeared."},
+    "empty":{"status":"pass","evidence":"Initial URL-entry state reviewed at both widths and exercised by the browser test; no report or fabricated result is displayed before a scan."},
+    "error":{"status":"pass","evidence":"API tests reject invalid/private URLs and missing consent, enforce rate limits, and return a recoverable scan failure without internal errors. An initial local container configuration failure was displayed with Try another scan, then corrected."},
+    "partial":{"status":"pass","evidence":"Real scan of three studio-site pages completed with manual-review checks; the app displayed the partial-coverage note and the embedded report."},
+    "success":{"status":"pass","evidence":"Browser test completes form-to-report with an injected deterministic runner; actual isolated scan produced a three-page report with twenty checked links and working report routes."},
+    "permission":{"status":"pass","evidence":"Authorization checkbox is required in browser and server validation. Public-address validation and cross-session report denial are covered by tests; proxy tests reject private/reserved addresses."}
+  },
+  "renderedEvidence": [
+    {"viewport":"1440x900","artifact":"desktop.jpg","observation":"Desktop form after real scan, with focus visible and four numbered scan outputs."},
+    {"viewport":"390x844","artifact":"mobile.jpg","observation":"Mobile form, stacked primary action, permission checkbox, scan limits, and scope section."}
+  ]
+}

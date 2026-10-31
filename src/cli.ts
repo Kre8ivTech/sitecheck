@@ -3,7 +3,7 @@ import { parseArgs } from 'node:util';
 import { optionsFrom } from './config.js';
 import { scan } from './scanner.js';
 
-const HELP = `SiteCheck by Kre8ivTech · v0.1.0
+const HELP = `SiteCheck by Kre8ivTech · v0.2.0
 
 Usage: sitecheck <url> [options]
 
@@ -31,7 +31,7 @@ async function main() {
     help: { type: 'boolean' }, version: { type: 'boolean' },
   } });
   if (values.help) { console.log(HELP); return; }
-  if (values.version) { console.log('0.1.0'); return; }
+  if (values.version) { console.log('0.2.0'); return; }
   if (positionals.length > 1) throw new Error('Provide one starting URL. Use config.paths for additional pages.');
   if (!['high', 'medium', 'low', 'none'].includes(values['fail-on']!)) throw new Error('--fail-on must be high, medium, low, or none.');
   const input: Record<string, unknown> = {};

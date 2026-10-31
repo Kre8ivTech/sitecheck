@@ -10,6 +10,16 @@ For developers, agencies, and website owners who want to catch problems before t
 
 **[Explore the sample report](https://kre8ivtech.github.io/sitecheck/)** · **[See the follow-up comparison](https://kre8ivtech.github.io/sitecheck/after.html)**
 
+**[Scan your website in the web app](https://sitecheck.kre8ivtech.com)**
+
+## Use the web interface
+
+Enter your public website URL, confirm you have permission to scan it, and run a quick check. The app shows scan progress and lets you view or download the report when it is ready. A quick web scan checks up to three pages and twenty internal links, with a two-minute time limit.
+
+Reports are private to your browser session and expire after one hour. Download HTML or JSON to keep a copy. No account is needed.
+
+To run the interface locally, install dependencies and Chromium as described below, then run `npm run web` and open http://localhost:3100. For public hosting, use the isolated deployment described in [docs/web-deployment.md](docs/web-deployment.md).
+
 ## What works today
 
 - **Accessibility:** axe-core checks for WCAG 2 A/AA and 2.1 A/AA, with affected selectors, HTML examples, and rule guidance.
@@ -20,7 +30,7 @@ For developers, agencies, and website owners who want to catch problems before t
 - **Comparison:** new, persisting, resolved, and not-reverified findings against a previous JSON report. An unvisited page is never treated as a successful fix.
 - **Automation:** predictable exit codes and configurable severity thresholds for CI.
 
-**Version 0.1.0 is an early release.** It is a command-line scanner with an HTML report, not a hosted dashboard. No account, AI API key, or SiteCheck telemetry is required.
+**Version 0.2.0 is an early release.** It includes a local command-line scanner and a web interface. No account, AI API key, or SiteCheck telemetry is required.
 
 ## Quick start
 
@@ -160,7 +170,7 @@ The code is intentionally small:
 
 ## Roadmap
 
-The next priorities are configurable viewport coverage, richer journey evidence, and a reusable GitHub Action. A hosted scanning service would require a separate security and operations design.
+The next priorities are configurable viewport coverage, richer journey evidence, and a reusable GitHub Action. The web service's deployment boundaries and current limits are documented in [docs/web-deployment.md](docs/web-deployment.md).
 
 Ideas and focused contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) and report vulnerabilities through [SECURITY.md](SECURITY.md).
 
