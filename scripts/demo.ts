@@ -20,6 +20,7 @@ try {
       ['reports/demo-after/report.html', 'docs/after.html', 'View the original scan', 'index.html'],
     ]) {
       const html = (await readFile(input!, 'utf8'))
+        .replace(/[\t ]+$/gm, '')
         .replace(/href="http:\/\/127\.0\.0\.1:[0-9]+[^\"]*"/g, 'href="#scope"')
         .replace('<body>', `<body><div style="padding:12px 4vw;background:#fff3cd;color:#493900;font-size:13px" role="note"><strong>Fictional sample report.</strong> This demo audits a temporary local website with deliberate problems. Target links are disabled. <a href="${other}">${label} →</a> · <a href="https://github.com/Kre8ivTech/sitecheck">Get SiteCheck</a></div>`);
       await writeFile(output!, html);
