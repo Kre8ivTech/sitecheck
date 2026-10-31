@@ -16,7 +16,7 @@ const message = (error: unknown) => error instanceof Error ? error.message : Str
 const skipPath = /\/(?:logout|log-out|signout|sign-out|delete|unsubscribe)(?:\/|$)/i;
 const assetPath = /\.(?:pdf|zip|gz|jpe?g|png|gif|svg|webp|mp[34]|woff2?|css|js|xml|json|ico)$/i;
 
-export async function scan(options: ScanOptions, progress: (text: string) => void = () => {}, runtime: { proxyServer?: string; sandbox?: boolean } = {}): Promise<ScanReport> {
+export async function scan(options: ScanOptions, progress: (text: string) => void = () => {}, runtime: { proxyServer?: string; sandbox?: boolean; signal?: AbortSignal } = {}): Promise<ScanReport> {
   const started = Date.now();
   const baseline = options.baseline ? JSON.parse(await readFile(options.baseline, 'utf8')) as ScanReport : undefined;
   const origin = new URL(options.url).origin;
@@ -37,9 +37,13 @@ export async function scan(options: ScanOptions, progress: (text: string) => voi
     add({ url, rule, title, detail, category: 'scan', severity: 'medium', recommendation: 'Resolve the unavailable check and run the scan again.', evidence: [] });
   };
   let browser;
+  runtime.signal?.throwIfAborted();
   try { browser = await chromium.launch({ chromiumSandbox: runtime.sandbox, ...(runtime.proxyServer ? { proxy: { server: runtime.proxyServer, bypass: '<-loopback>' } } : {}) }); }
   catch { throw new Error('Chromium could not start. Run npx playwright install chromium, then try again.'); }
+  const stop = () => { void browser.close().catch(() => {}); };
+  runtime.signal?.addEventListener('abort', stop, { once: true });
   try {
+    runtime.signal?.throwIfAborted();
     const context = await browser.newContext({
       viewport: { width: 1440, height: 900 }, userAgent: AGENT,
       serviceWorkers: 'block', acceptDownloads: false,
@@ -89,6 +93,7 @@ export async function scan(options: ScanOptions, progress: (text: string) => voi
       return true;
     };
     while (queue.length && report.pages.length < options.maxPages) {
+      runtime.signal?.throwIfAborted();
       const url = queue.shift()!;
       if (seen.has(url)) continue;
       seen.add(url);
@@ -160,6 +165,7 @@ export async function scan(options: ScanOptions, progress: (text: string) => voi
     const candidates = Array.from(links.entries());
     report.scope.linksNotChecked = Math.max(0, candidates.length - options.maxLinks);
     for (const [url, sources] of candidates.slice(0, options.maxLinks)) {
+      runtime.signal?.throwIfAborted();
       progress(`Checking link: ${url}`);
       const checked = report.pages.find(p => p.url === url);
       let status = checked?.status;
@@ -181,6 +187,7 @@ export async function scan(options: ScanOptions, progress: (text: string) => voi
       }
     }
     for (const journey of options.journeys) {
+      runtime.signal?.throwIfAborted();
       progress(`Checking journey: ${journey.name}`);
       let completed = 0;
       try {
@@ -203,10 +210,11 @@ export async function scan(options: ScanOptions, progress: (text: string) => voi
     if (!report.pages.length) problem(options.url, 'no-pages', 'No pages were audited', 'All seed pages were excluded or disallowed by robots.txt.');
     report.durationMs = Date.now() - started;
     if (baseline) report.comparison = compareReports(report, baseline);
+    runtime.signal?.throwIfAborted();
     await writeFile(join(options.output, 'report.json'), JSON.stringify(report, null, 2) + '\n');
     const images: Record<string, string> = {};
     for (const item of report.pages) if (item.screenshot) images[item.screenshot] = (await readFile(join(options.output, item.screenshot))).toString('base64');
     await writeFile(join(options.output, 'report.html'), renderReport(report, images));
     return report;
-  } finally { await browser.close(); }
+  } finally { runtime.signal?.removeEventListener('abort', stop); await browser.close(); }
 }

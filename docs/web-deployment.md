@@ -24,7 +24,7 @@ The edge service appends its peer address to X-Forwarded-For. TRUST_PROXY_HOPS=1
 
 ## Boundaries and limits
 
-- One running scan and three queued scans; six accepted scans per client IP per hour. Capacity is capped at 100 retained jobs.
+- One running scan and three queued scans; six accepted scans and thirty submission attempts per client IP per hour. Queue reservations prevent simultaneous submissions from overbooking capacity. Capacity is capped at 100 retained jobs.
 - Each scan has a two-minute process deadline, three pages, twenty internal links, and ten-second operation timeouts. A separate worker process is terminated with its child processes on cancellation/deadline.
 - Session cookies are opaque, HttpOnly, SameSite=Strict, and Secure for HTTPS origins. Job status and report routes verify session ownership. Job IDs alone do not grant access.
 - Reports expire after one hour. Expired files are cleaned up every thirty seconds. Pending jobs become failed after a service restart; finished reports retain their original ownership and expiry.

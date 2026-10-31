@@ -29,7 +29,7 @@ podman run -d --name sitecheck-edge --network sitecheck-isolated --network sitec
   -p 127.0.0.1:3100:8080 --read-only --tmpfs /tmp:rw,size=32m \
   --memory 64m --cpus 0.25 --pids-limit 32 --cap-drop ALL --security-opt no-new-privileges \
   --log-opt max-size=10mb -v "${release_dir}/deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro,Z" \
-  docker.io/nginxinc/nginx-unprivileged:stable-alpine
+  docker.io/nginxinc/nginx-unprivileged@sha256:f5116ed4606f3eb015dd4a8e28cb9b351476dc0ad4bc6e9f93b19cec130cdf03
 for name in sitecheck-egress sitecheck-web sitecheck-edge; do
   podman generate systemd --name "$name" --restart-policy=always > "/etc/systemd/system/container-${name}.service"
 done

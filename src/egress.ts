@@ -7,7 +7,7 @@ export async function publicDestination(host: string, port: number, resolve = lo
   if (![80, 443].includes(port)) throw new Error('Only public web ports are allowed.');
   const addresses = await resolve(host.replace(/^\[|\]$/g, ''), { all: true });
   if (!addresses.length || addresses.some(item => !isPublicAddress(item.address))) throw new Error('Private or reserved address blocked.');
-  return addresses[0]!.address;
+  return (addresses.find(item => item.family === 4) ?? addresses[0])!.address;
 }
 
 export function createEgressProxy() {

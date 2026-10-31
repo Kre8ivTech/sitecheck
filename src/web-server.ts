@@ -22,8 +22,10 @@ const terminal = (job: Job) => !['queued', 'running'].includes(job.status);
 const uuid = /^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/;
 
 export async function runWorker(job: Job, directory: string, signal: AbortSignal, progress: (text: string) => void, proxy: string): Promise<ScanReport> {
+  signal.throwIfAborted();
   const input = join(directory, 'input.json');
   await writeFile(input, JSON.stringify({ url: job.url, output: directory }), { mode: 0o600 });
+  signal.throwIfAborted();
   const source = import.meta.url.endsWith('.ts');
   const worker = fileURLToPath(new URL(source ? './web-worker.ts' : './web-worker.js', import.meta.url));
   const child = spawn(process.execPath, [...(source ? ['--import', 'tsx'] : []), worker, input], {
@@ -31,8 +33,13 @@ export async function runWorker(job: Job, directory: string, signal: AbortSignal
     // Do not pass hosting credentials into a process that opens untrusted sites.
     env: { PATH: process.env.PATH, HOME: directory, TMPDIR: '/tmp', NODE_ENV: 'production', PLAYWRIGHT_BROWSERS_PATH: process.env.PLAYWRIGHT_BROWSERS_PATH ?? join(homedir(), process.platform === 'darwin' ? 'Library/Caches/ms-playwright' : '.cache/ms-playwright'), SITECHECK_PROXY: proxy },
   });
+  let forceStop: ReturnType<typeof setTimeout> | undefined;
   const terminate = () => { if (child.pid) { try { process.kill(-child.pid, 'SIGKILL'); } catch { /* already stopped */ } } };
-  signal.addEventListener('abort', terminate, { once: true });
+  const stop = () => {
+    if (child.pid) { try { process.kill(child.pid, 'SIGTERM'); } catch { /* already stopped */ } }
+    forceStop = setTimeout(terminate, 5000); forceStop.unref();
+  };
+  signal.addEventListener('abort', stop, { once: true });
   let pending = '', stderr = '';
   child.stdout.on('data', chunk => {
     pending += String(chunk);
@@ -44,7 +51,7 @@ export async function runWorker(job: Job, directory: string, signal: AbortSignal
     await new Promise<void>((resolve, reject) => { child.once('error', reject); child.once('close', code => code === 0 && !signal.aborted ? resolve() : reject(new Error(signal.aborted ? 'Scan stopped.' : stderr || 'The scan could not finish.'))); });
     const raw = await readFile(join(directory, 'report.json'), 'utf8');
     return JSON.parse(raw) as ScanReport;
-  } finally { signal.removeEventListener('abort', terminate); terminate(); await rm(input, { force: true }); }
+  } finally { signal.removeEventListener('abort', stop); if (forceStop) clearTimeout(forceStop); terminate(); await rm(input, { force: true }); }
 }
 
 export async function createWebServer(settings: Settings) {
@@ -52,6 +59,7 @@ export async function createWebServer(settings: Settings) {
   await mkdir(data, { recursive: true, mode: 0o700 });
   const jobs = new Map<string, Job>();
   const rates = new Map<string, { start: number; count: number }>();
+  const attempts = new Map<string, { start: number; count: number }>();
   const ttl = settings.ttlMs ?? 60 * 60 * 1000;
   const active = new Map<string, AbortController>();
   const runner: Runner = settings.runner ?? ((job, directory, signal, progress) => runWorker(job, directory, signal, progress, settings.proxy));
@@ -62,6 +70,7 @@ export async function createWebServer(settings: Settings) {
     if (!response.ok) throw new Error('Public destination validation failed.');
   });
   let accepting = true;
+  let reservations = 0;
   for (const item of await readdir(data, { withFileTypes: true })) {
     if (!item.isDirectory() || !uuid.test(item.name)) continue;
     try {
@@ -101,6 +110,7 @@ export async function createWebServer(settings: Settings) {
   const cleanup = async () => {
     for (const [id, job] of jobs) if (terminal(job) && Date.now() - job.createdAt >= ttl) { jobs.delete(id); await rm(join(data, id), { recursive: true, force: true }); }
     for (const [key, entry] of rates) if (Date.now() - entry.start >= 3600000) rates.delete(key);
+    for (const [key, entry] of attempts) if (Date.now() - entry.start >= 3600000) attempts.delete(key);
   };
   const timer = setInterval(() => void cleanup().catch(() => {}), 30000); timer.unref();
   const send = (response: ServerResponse, status: number, body: string, type = 'application/json') => {
@@ -140,10 +150,13 @@ export async function createWebServer(settings: Settings) {
         const chain = typeof forwarded === 'string' ? forwarded.split(',').map(value => value.trim()) : [];
         const address = (hops > 0 && chain.length >= hops ? chain[chain.length - hops] : request.socket.remoteAddress) ?? 'unknown';
         const key = digest(address);
+        const attempt = attempts.get(key);
+        if (attempt && Date.now() - attempt.start < 3600000 && attempt.count >= 30) return json(response, 429, { error: 'Too many scan requests. Please try again later.' });
+        attempts.set(key, attempt && Date.now() - attempt.start < 3600000 ? { ...attempt, count: attempt.count + 1 } : { start: Date.now(), count: 1 });
         const rate = rates.get(key);
         if (rate && Date.now() - rate.start < 3600000 && rate.count >= (settings.rateLimit ?? 6)) { response.setHeader('Retry-After', '3600'); return json(response, 429, { error: 'You’ve reached the hourly scan limit. Please try again later.' }); }
-        if ([...jobs.values()].filter(job => !terminal(job)).length >= 4) return json(response, 503, { error: 'The scan queue is full. Please try again in a few minutes.' });
-        if (jobs.size >= 100) return json(response, 503, { error: 'SiteCheck is at capacity. Please try again later.' });
+        if ([...jobs.values()].filter(job => !terminal(job)).length + reservations >= 4) return json(response, 503, { error: 'The scan queue is full. Please try again in a few minutes.' });
+        if (jobs.size + reservations >= 100) return json(response, 503, { error: 'SiteCheck is at capacity. Please try again later.' });
         const body = await readBody(request);
         if (body.permission !== true) return json(response, 400, { error: 'Confirm that you have permission to scan this website.' });
         if (typeof body.url !== 'string' || body.url.length > 2048) return json(response, 400, { error: 'Enter a website address.' });
@@ -157,12 +170,15 @@ export async function createWebServer(settings: Settings) {
         // Check limits again after asynchronous validation.
         const currentRate = rates.get(key);
         if (currentRate && Date.now() - currentRate.start < 3600000 && currentRate.count >= (settings.rateLimit ?? 6)) return json(response, 429, { error: 'You’ve reached the hourly scan limit.' });
-        if ([...jobs.values()].filter(job => !terminal(job)).length >= 4 || jobs.size >= 100) return json(response, 503, { error: 'The scan queue is full. Please try again shortly.' });
+        if ([...jobs.values()].filter(job => !terminal(job)).length + reservations >= 4 || jobs.size + reservations >= 100) return json(response, 503, { error: 'The scan queue is full. Please try again shortly.' });
         rates.set(key, currentRate && Date.now() - currentRate.start < 3600000 ? { ...currentRate, count: currentRate.count + 1 } : { start: Date.now(), count: 1 });
         const job: Job = { id: randomUUID(), owner, url: url.href, createdAt: Date.now(), status: 'queued', progress: 'Waiting for a scan slot…' };
-        await mkdir(join(data, job.id), { mode: 0o700 });
-        await save(job); jobs.set(job.id, job); pump();
-        return json(response, 202, { id: job.id });
+        reservations++;
+        try {
+          await mkdir(join(data, job.id), { mode: 0o700 });
+          await save(job); jobs.set(job.id, job); pump();
+          return json(response, 202, { id: job.id });
+        } finally { reservations--; }
       }
       const match = /^\/api\/scans\/([^/]+)(?:\/(report|report\.json))?$/.exec(path);
       if (match && uuid.test(match[1]!)) {

@@ -63,8 +63,11 @@ test('web API enforces origin, permission, public targets, ownership, downloads,
 test('queue is bounded, cancellation stops work, and expired reports are removed', async () => {
   const app = await setup({ delay: 1000, ttlMs: 150, rateLimit: 10 });
   try {
+    const responses = await Promise.all(Array.from({ length: 8 }, (_, n) => app.post({ url: `site${n}.example`, permission: true })));
+    assert.equal(responses.filter(response => response.status === 202).length, 4, 'parallel requests must not overbook the queue');
+    assert.equal(responses.filter(response => response.status === 503).length, 4);
     const ids: string[] = [];
-    for (let n = 0; n < 4; n++) { const response = await app.post({ url: `site${n}.example`, permission: true }); assert.equal(response.status, 202); ids.push((await response.json()).id); }
+    for (const response of responses.filter(item => item.status === 202)) ids.push((await response.json()).id);
     assert.equal((await app.post({ url: 'full.example', permission: true })).status, 503);
     for (const id of ids) await fetch(`${app.origin}/api/scans/${id}`, { method: 'DELETE', headers: { cookie: app.cookie, origin: app.origin } });
     assert.equal((await app.status(ids[0]!)).status, 'cancelled');
