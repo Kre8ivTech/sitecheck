@@ -4,7 +4,6 @@ set -euo pipefail
 release_dir="$(pwd)"
 release_revision="${1:?Pass the tested Git revision}"
 image="localhost/sitecheck:${release_revision}"
-bind_port="${SITECHECK_BIND_PORT:-33117}"
 podman build --memory=2g --cpu-period=100000 --cpu-quota=200000 -t "$image" .
 podman network exists sitecheck-isolated || podman network create --internal sitecheck-isolated
 podman network exists sitecheck-outbound || podman network create sitecheck-outbound
@@ -40,12 +39,13 @@ podman run -d --name sitecheck-web --init --network "sitecheck-isolated:ip=${web
   -e "SITECHECK_PROXY=http://${egress_ip}:3128" -e SITECHECK_DATA=/data -e TRUST_PROXY_HOPS=2 \
   "$image"
 podman run -d --name sitecheck-edge --network "sitecheck-outbound:ip=${edge_outbound_ip}" --network "sitecheck-isolated:ip=${edge_ip}" \
-  --add-host "web:${web_ip}" -p "127.0.0.1:${bind_port}:8080" --read-only --tmpfs /tmp:rw,size=32m \
+  --add-host "web:${web_ip}" --read-only --tmpfs /tmp:rw,size=32m \
   --memory 64m --cpus 0.25 --pids-limit 32 --cap-drop ALL --security-opt no-new-privileges \
   --log-opt max-size=10mb -v "${release_dir}/deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro,Z" \
   docker.io/nginxinc/nginx-unprivileged@sha256:f5116ed4606f3eb015dd4a8e28cb9b351476dc0ad4bc6e9f93b19cec130cdf03
-# CNI's internal bridge deliberately has no host route. Port forwarding must
-# select the edge's outbound interface. Permit only this new host-to-edge flow
+# CNI's internal bridge deliberately has no host route, and multi-network
+# host-port rule ordering is not stable. Use the dedicated private edge address.
+# Permit only this new host-to-edge flow
 # through CSF's default-deny OUTPUT policy; no public port is opened.
 cat > /opt/sitecheck/firewall.sh <<FIREWALL
 #!/usr/bin/env bash
@@ -69,4 +69,6 @@ printf '[Unit]\nAfter=container-sitecheck-web.service\nRequires=container-sitech
 systemctl daemon-reload
 podman stop --time 10 sitecheck-edge sitecheck-web sitecheck-egress
 systemctl enable --now container-sitecheck-egress.service container-sitecheck-web.service container-sitecheck-edge.service
-curl --max-time 5 --retry 5 --retry-connrefused --retry-delay 1 --fail "http://127.0.0.1:${bind_port}/health"
+printf 'http://%s:8080\n' "$edge_outbound_ip" > /opt/sitecheck/edge-endpoint
+chmod 600 /opt/sitecheck/edge-endpoint
+curl --max-time 5 --retry 5 --retry-connrefused --retry-delay 1 --fail "http://${edge_outbound_ip}:8080/health"
