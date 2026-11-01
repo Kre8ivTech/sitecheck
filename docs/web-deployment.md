@@ -24,6 +24,10 @@ The edge service appends its peer address to X-Forwarded-For. TRUST_PROXY_HOPS=1
 
 ## Boundaries and limits
 
+The cPanel/Podman installer uses loopback port 33117 by default (`SITECHECK_BIND_PORT` overrides it), leaving existing host services alone. On CNI-based Podman, internal networks cannot use the dnsname plugin, so the installer assigns dedicated static internal addresses and resolves the fixed web upstream through an explicit host entry. The public-address proxy remains the worker's only external path. Docker Compose uses its own service discovery and defaults to port 3100.
+
+The Podman edge lists its outbound interface first because CNI's internal bridge deliberately has no host route. On the cPanel host, the installer adds only the host-to-edge TCP/8080 OUTPUT flow and its established replies to the default-deny firewall. The public binding stays loopback-only. It preserves existing firewall rules and appends a SiteCheck-only replay hook to CSF's post-reload script.
+
 - One running scan and three queued scans; six accepted scans and thirty submission attempts per client IP per hour. Queue reservations prevent simultaneous submissions from overbooking capacity. Capacity is capped at 100 retained jobs.
 - Each scan has a two-minute process deadline, three pages, twenty internal links, and ten-second operation timeouts. A separate worker process is terminated with its child processes on cancellation/deadline.
 - Session cookies are opaque, HttpOnly, SameSite=Strict, and Secure for HTTPS origins. Job status and report routes verify session ownership. Job IDs alone do not grant access.
