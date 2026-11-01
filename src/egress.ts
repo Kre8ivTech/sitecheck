@@ -1,9 +1,27 @@
 import http from 'node:http';
 import net from 'node:net';
-import { lookup } from 'node:dns/promises';
+import { Resolver } from 'node:dns/promises';
 import { isPublicAddress } from './network.js';
 
-export async function publicDestination(host: string, port: number, resolve = lookup): Promise<string> {
+export type AddressLookup = (host: string, options: { all: true }) => Promise<{ address: string; family: number }[]>;
+const resolver = new Resolver({ timeout: 3000, tries: 1 });
+resolver.setServers(['1.1.1.1', '8.8.8.8']);
+
+export const resolvePublicAddresses: AddressLookup = async host => {
+  const literal = host.replace(/^\[|\]$/g, '');
+  if (net.isIP(literal)) return [{ address: literal, family: net.isIP(literal) }];
+  // Hosting machines can override customer domains in /etc/hosts or local DNS.
+  // Query public recursive resolvers directly rather than scanning an old copy.
+  const [ipv4, ipv6] = await Promise.allSettled([resolver.resolve4(literal), resolver.resolve6(literal)]);
+  const addresses = [
+    ...(ipv4.status === 'fulfilled' ? ipv4.value.map(address => ({ address, family: 4 })) : []),
+    ...(ipv6.status === 'fulfilled' ? ipv6.value.map(address => ({ address, family: 6 })) : []),
+  ];
+  if (!addresses.length) throw new Error('Public DNS could not resolve this website.');
+  return addresses;
+};
+
+export async function publicDestination(host: string, port: number, resolve: AddressLookup = resolvePublicAddresses): Promise<string> {
   if (![80, 443].includes(port)) throw new Error('Only public web ports are allowed.');
   const addresses = await resolve(host.replace(/^\[|\]$/g, ''), { all: true });
   if (!addresses.length || addresses.some(item => !isPublicAddress(item.address))) throw new Error('Private or reserved address blocked.');

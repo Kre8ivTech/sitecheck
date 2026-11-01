@@ -8,7 +8,7 @@ import { chromium } from 'playwright';
 import AxeBuilder from '@axe-core/playwright';
 import { createWebServer, type Job } from '../src/web-server.js';
 import { renderReport } from '../src/report.js';
-import { publicDestination, createEgressProxy } from '../src/egress.js';
+import { publicDestination, createEgressProxy, resolvePublicAddresses, type AddressLookup } from '../src/egress.js';
 import type { ScanReport } from '../src/types.js';
 
 function report(url: string): ScanReport { return { schemaVersion: 1, version: '0.1.0', url, startedAt: new Date().toISOString(), durationMs: 100, status: 'complete', scope: { maxPages: 3, maxLinks: 20, queuedPagesRemaining: 0, linksNotChecked: 0, robotsSkipped: [], excluded: [] }, pages: [], links: [], journeys: [], findings: [] }; }
@@ -102,8 +102,11 @@ test('egress validates all addresses, restricts ports, and blocks local proxy re
   await assert.rejects(publicDestination('127.0.0.1', 80));
   await assert.rejects(publicDestination('169.254.169.254', 80));
   await assert.rejects(publicDestination('example.com', 22));
-  const mixed = (async () => [{ address: '8.8.8.8', family: 4 }, { address: '10.0.0.1', family: 4 }]) as unknown as typeof import('node:dns/promises').lookup;
+  const mixed: AddressLookup = async () => [{ address: '8.8.8.8', family: 4 }, { address: '10.0.0.1', family: 4 }];
   await assert.rejects(publicDestination('mixed.example', 443, mixed));
+  assert.deepEqual(await resolvePublicAddresses('127.0.0.1', { all: true }), [{ address: '127.0.0.1', family: 4 }]);
+  const publicOnly: AddressLookup = async () => [{ address: '2606:4700::1111', family: 6 }, { address: '1.1.1.1', family: 4 }];
+  assert.equal(await publicDestination('public.example', 443, publicOnly), '1.1.1.1');
   const proxy = createEgressProxy(); proxy.server.listen(0, '127.0.0.1'); await once(proxy.server, 'listening');
   const address = proxy.server.address(); if (!address || typeof address === 'string') throw new Error('Listen failed');
   const http = await import('node:http');
