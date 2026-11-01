@@ -16,6 +16,12 @@ services:
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
     depends_on: [web]
+    healthcheck:
+      test: [CMD-SHELL, "wget -q -T 3 -O - http://127.0.0.1:8080/health | grep -q '\"status\":\"ok\"'"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     logging:
       driver: json-file
       options: {max-size: "10m", max-file: "2"}
@@ -58,6 +64,12 @@ services:
   egress:
     build: .
     command: [node, dist/egress-main.js]
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3128/validate?url=http%3A%2F%2F127.0.0.1',{signal:AbortSignal.timeout(3000)}).then(async r=>process.exit(r.status===403 && (await r.text())==='Destination blocked.'?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     init: true
     restart: unless-stopped
     networks:
